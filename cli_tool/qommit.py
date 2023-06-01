@@ -45,13 +45,14 @@ def run_git_command(command, path='.', env=None):
     else:
         print(stdout.decode())
 
-base_path = '/Users/yadkonrad/dev_dev/year2023/mar23/widget_wise/cli_tool/_widgets/'
+base_path = '_widgets/'
 
 
 
 
 # ad_hot, skip widgets in this list already:
 skip_widgets = os.listdir(base_path)
+
 
 # WIDGET_LOOP
 for widget_name in widget_names_list:
@@ -66,8 +67,10 @@ for widget_name in widget_names_list:
     data = df.to_dict('records')
     # Organize data by widget_name
     widgets = defaultdict(list)
+    dev_widgets = defaultdict(list)
     for entry in data:
         widgets[entry['widget_name']].append(entry)
+        dev_widgets[entry['signer_id']].append(entry)
 
 
 

@@ -17,7 +17,7 @@ dev_profiles = {}
 
 
 for dev in dev_list:
-    time.sleep(2)
+    time.sleep(1)
     try:
         dev_profile = get_dev_info(dev)
         dev_profiles[dev] = dev_profile.to_dict('records')

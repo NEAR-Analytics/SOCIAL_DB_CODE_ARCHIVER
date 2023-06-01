@@ -110,15 +110,24 @@ def get_list_of_all_devs():
 
 
 
-def get_widget_updates(widget_name):
+def get_widget_updates(widget_name, timestamp=None):
 
     widget_name = widget_name.replace("'", "\\'")
 
-    sql_statement =f"""
-    select * from
-    near.social.fact_widget_deployments
-    where WIDGET_NAME = '{widget_name}'
-    """
+    if timestamp:
+        sql_statement = f"""
+        SELECT *
+        FROM near.social.fact_widget_deployments
+        WHERE WIDGET_NAME = '{widget_name}'
+        AND BLOCK_TIMESTAMP > '{timestamp}';
+        """
+    else:
+
+        sql_statement =f"""
+        select * from
+        near.social.fact_widget_deployments
+        where WIDGET_NAME = '{widget_name}'
+        """
 
 
 
