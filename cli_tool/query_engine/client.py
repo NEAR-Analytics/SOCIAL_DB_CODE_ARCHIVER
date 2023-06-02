@@ -57,7 +57,7 @@ def get_widget_names():
     FROM near.social.fact_widget_deployments
     GROUP BY WIDGET_NAME;
     """
-    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement)
     return snowflake_data
 
 def get_all_widget():
@@ -76,7 +76,7 @@ def get_all_widget():
     where WIDGET_NAME = 'app__frame'
     """
 
-    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement)
     return snowflake_data
 
 
@@ -93,7 +93,7 @@ def get_dev_info(dev_name):
     limit 1
     """
 
-    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement)
     return snowflake_data
 
 
@@ -106,7 +106,7 @@ def get_list_of_all_devs():
 
     """
 
-    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement)
 
     data = set(snowflake_data['signer_id'])
     return data
@@ -134,7 +134,7 @@ def get_widget_updates(widget_name, timestamp=None):
 
 
 
-    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement)
     return snowflake_data
 
 
