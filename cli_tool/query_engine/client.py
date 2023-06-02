@@ -7,11 +7,14 @@ from itertools import chain
 from pprint import pprint
 from fuzzywuzzy import process, fuzz
 from decimal import *
-from shroomdk import ShroomDK
+# from shroomdk import ShroomDK
+
+from flipside import Flipside
 
 
 SHROOM_SDK_API = os.environ['SHROOM_SDK']
 
+flipside = Flipside(SHROOM_SDK_API, "https://api-v2.flipsidecrypto.xyz")
 
 def querying_pagination(query_string, API_KEY=SHROOM_SDK_API):
     """
@@ -54,7 +57,7 @@ def get_widget_names():
     FROM near.social.fact_widget_deployments
     GROUP BY WIDGET_NAME;
     """
-    snowflake_data = querying_pagination(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
     return snowflake_data
 
 def get_all_widget():
@@ -73,7 +76,7 @@ def get_all_widget():
     where WIDGET_NAME = 'app__frame'
     """
 
-    snowflake_data = querying_pagination(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
     return snowflake_data
 
 
@@ -90,7 +93,7 @@ def get_dev_info(dev_name):
     limit 1
     """
 
-    snowflake_data = querying_pagination(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
     return snowflake_data
 
 
@@ -103,7 +106,7 @@ def get_list_of_all_devs():
 
     """
 
-    snowflake_data = querying_pagination(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
 
     data = set(snowflake_data['signer_id'])
     return data
@@ -131,7 +134,7 @@ def get_widget_updates(widget_name, timestamp=None):
 
 
 
-    snowflake_data = querying_pagination(sql_statement, SHROOM_SDK_API)
+    snowflake_data = flipside.query(sql_statement, SHROOM_SDK_API)
     return snowflake_data
 
 
