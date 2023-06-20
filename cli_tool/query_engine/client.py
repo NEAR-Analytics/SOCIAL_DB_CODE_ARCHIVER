@@ -14,7 +14,7 @@ from flipside import Flipside
 
 SHROOM_SDK_API = os.environ['SHROOM_SDK']
 
-flipside = Flipside(SHROOM_SDK_API, "https://api-v2.flipsidecrypto.xyz")
+flipside = Flipside(SHROOM_SDK_API)
 
 def querying_pagination(query_string, API_KEY=SHROOM_SDK_API):
     """
@@ -52,13 +52,13 @@ def querying_pagination(query_string, API_KEY=SHROOM_SDK_API):
 
 def get_widget_names():
 
-    sql_statement = f"""
+    sql_statement = """
     SELECT WIDGET_NAME, COUNT(*) as COUNT
     FROM near.social.fact_widget_deployments
     GROUP BY WIDGET_NAME;
     """
     snowflake_data = flipside.query(sql_statement)
-    return snowflake_data
+    return snowflake_data.records
 
 def get_all_widget():
     """
@@ -77,7 +77,7 @@ def get_all_widget():
     """
 
     snowflake_data = flipside.query(sql_statement)
-    return snowflake_data
+    return snowflake_data.records
 
 
 def get_dev_info(dev_name):
@@ -94,7 +94,7 @@ def get_dev_info(dev_name):
     """
 
     snowflake_data = flipside.query(sql_statement)
-    return snowflake_data
+    return snowflake_data.records
 
 
 def get_list_of_all_devs():
@@ -107,8 +107,10 @@ def get_list_of_all_devs():
     """
 
     snowflake_data = flipside.query(sql_statement)
+    snowflake_data = snowflake_data.records
+    signer_ids = [row['signer_id'] for row in snowflake_data]
 
-    data = set(snowflake_data['signer_id'])
+    data = set(signer_ids)
     return data
 
 
@@ -135,7 +137,7 @@ def get_widget_updates(widget_name, timestamp=None):
 
 
     snowflake_data = flipside.query(sql_statement)
-    return snowflake_data
+    return snowflake_data.records
 
 
     """

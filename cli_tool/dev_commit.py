@@ -10,7 +10,7 @@ import time
 import json
 
 # create a delay within a loop:
-
+import uuid
 
 base_path = os.environ['WIDGET_ROOT_DIR']
 
@@ -23,7 +23,7 @@ def get_github_id(signed_id):
     if signed_id in dev_profiles:
         profile_data_raw = dev_profiles[signed_id]
         if len(profile_data_raw):
-            profile_data = json.loads(dev_profiles[signed_id][0]['profile_data'])
+            profile_data = dev_profiles[signed_id]['profile_data']
             if 'github' in profile_data:
                 return profile_data['github']
 
@@ -43,9 +43,22 @@ def run_git_command(command, path='.', env=None):
 
 # Sort data by block_timestamp
 
-widget_names_list = set(get_widget_names()['widget_name'])
-widget_names_list = [name for name in widget_names_list if name]
 
+snowflake_data = get_widget_names()
+widget_names_list = [row['widget_name'] for row in snowflake_data]
+
+widget_names_list = set(widget_names_list)
+# widget_names_list = [name for name in widget_names_list if name]
+
+
+def commit_parse_date(date_string):
+    formats = ['%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%dT%H:%M:%S.%fZ']
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_string, fmt)
+        except ValueError:
+            pass
+    raise ValueError(f'time data {date_string} does not match any of the formats')
 
 
 def find_files(root_dir, file_name):
@@ -100,10 +113,13 @@ for widget_name in widget_names_list:
         if widget_name in existing_widgets:
             print(f"Updating Index {widget_name}")
 
-            df = get_widget_updates(widget_name, existing_widgets[widget_name]['block_timestamp'])
+            df_arr = get_widget_updates(widget_name, existing_widgets[widget_name]['block_timestamp'])
+            df = pd.DataFrame(df_arr)
+
         else:
             print(f"Creating Index {widget_name}")
-            df = get_widget_updates(widget_name)
+            df_arr = get_widget_updates(widget_name)
+            df = pd.DataFrame(df_arr)
     except:
         # if there is an error, skip this widget and add it failed widgets list
         failed_widgets.append(widget_name)
@@ -114,7 +130,7 @@ for widget_name in widget_names_list:
 
 
 
-    time.sleep(2)
+    time.sleep(0.5)
     df = df.sort_values(by=['block_timestamp'])
 
     data = df.to_dict('records')
@@ -175,7 +191,12 @@ for widget_name in widget_names_list:
             if widget_name in existing_widgets:
                 print(f"checking updates for {widget_name} by {signer_dir} at {timestamp}")
 
-                current_commit_date = datetime.strptime(widget_entry['block_timestamp'], "%Y-%m-%d %H:%M:%S.%f")
+
+                current_commit_date = commit_parse_date(widget_entry['block_timestamp'])
+                # current_commit_date = datetime.strptime(widget_entry['block_timestamp'], "%Y-%m-%d %H:%M:%S.%f")
+
+                # current_commit_date = datetime.strptime(widget_entry['block_timestamp'], "%Y-%m-%dT%H:%M:%S.%fZ")
+
 
                 try:
                     with open(os.path.join(widget_name, 'commit_raw.json'), 'r') as f:
@@ -185,7 +206,12 @@ for widget_name in widget_names_list:
                     failed_widgets.append(widget_name)
                     continue
                 # get the latest commit date
-                latest_commit_date = datetime.strptime(data['block_timestamp'], "%Y-%m-%d %H:%M:%S.%f")
+
+                latest_commit_date = commit_parse_date(data['block_timestamp'])
+                # latest_commit_date = datetime.strptime(data['block_timestamp'], "%Y-%m-%d %H:%M:%S.%f")
+
+                # latest_commit_date = datetime.strptime(data['block_timestamp'], "%Y-%m-%dT%H:%M:%S.%fZ")
+
                 # Compare the dates
                 if current_commit_date > latest_commit_date:
                     print(f"updating {widget_name}")
@@ -197,6 +223,9 @@ for widget_name in widget_names_list:
 
 
             else:
+                if widget_name == '':
+                    # add random string to widget_name
+                    widget_name = signer_dir + '_' + str(uuid.uuid4())
                 print(f"Creating {widget_name} by {signer_dir} at {timestamp}")
                 # Create sub-directory for each widget
                 if not os.path.exists(widget_name):
