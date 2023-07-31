@@ -166,22 +166,24 @@ for widget_name in widget_names_list:
             timestamp = widget_entry['block_timestamp']
 
 
-            committer_name = get_github_id(signer_dir)
+            # committer_name = get_github_id(signer_dir)
+            # committer_email = f"{committer_name}" # @example.com
 
-            committer_email = f"{committer_name}" # @example.com
-
+            # we changed it to signer_dir, since
+            # we are not using github id anymore due to performance and API issues
             env = os.environ.copy()
-            env['GIT_COMMITTER_NAME'] = committer_name
-            env['GIT_COMMITTER_EMAIL'] = committer_email
+            env['GIT_COMMITTER_NAME'] = signer_dir
+            env['GIT_COMMITTER_EMAIL'] = signer_dir
 
 
-            if committer_name:
+            # if committer_name:
 
-                env['GIT_AUTHOR_NAME'] = committer_name
-                env['GIT_AUTHOR_EMAIL'] = committer_name
-            else:
-                env['GIT_AUTHOR_NAME'] = committer_name
-                env['GIT_AUTHOR_EMAIL'] = committer_email
+            #     env['GIT_AUTHOR_NAME'] = committer_name
+            #     env['GIT_AUTHOR_EMAIL'] = committer_name
+            # else:
+            #     env['GIT_AUTHOR_NAME'] = committer_name
+            #     env['GIT_AUTHOR_EMAIL'] = committer_email
+
 
 
             widget_name = widget_entry['widget_name']
