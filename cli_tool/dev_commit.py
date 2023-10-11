@@ -1,38 +1,23 @@
-
+# imports
 import os
 import pandas as pd
 import subprocess
+import json
+import uuid
+from datetime import datetime
 from collections import defaultdict
 
 from query_engine.client import *
-import time
-# Read the CSV file
-import json
 
-# create a delay within a loop:
-import uuid
+# Constants and Initial Setup:
 
-base_path = os.environ['WIDGET_ROOT_DIR']
+COMMIT_RAW_FILENAME = 'commit_raw.json'
+SOURCE_CODE_FILENAME = 'source_code.jsx'
 
-# generate code to load dev_profiles from file:
-with open("dev_profiles.json") as file:
-  dev_profiles = json.load(file)
+base_path = os.environ.get('WIDGET_ROOT_DIR', './default_directory')  # Use a default directory if environment variable is not set
 
+# Utility Functions:
 
-def get_github_id(signed_id):
-    if signed_id in dev_profiles:
-        profile_data_raw = dev_profiles[signed_id]
-        if len(profile_data_raw):
-            profile_data = dev_profiles[signed_id]['profile_data']
-            if 'github' in profile_data:
-                return profile_data['github']
-
-    return signed_id
-
-# df = get_all_widget()
-
-
-# Function to run git commands
 def run_git_command(command, path='.', env=None):
     process = subprocess.Popen(command, cwd=path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     stdout, stderr = process.communicate()
@@ -40,15 +25,6 @@ def run_git_command(command, path='.', env=None):
         print(stderr.decode())
     else:
         print(stdout.decode())
-
-# Sort data by block_timestamp
-
-
-snowflake_data = get_widget_names()
-widget_names_list = [row['widget_name'] for row in snowflake_data]
-
-widget_names_list = set(widget_names_list)
-# widget_names_list = [name for name in widget_names_list if name]
 
 
 def commit_parse_date(date_string):
@@ -62,196 +38,93 @@ def commit_parse_date(date_string):
 
 
 def find_files(root_dir, file_name):
-    file_paths = []
+    return [os.path.join(dirpath, file) for dirpath, _, filenames in os.walk(root_dir) for file in filenames if file == file_name]
 
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        for file in filenames:
-            if file == file_name:
-                file_path = os.path.join(dirpath, file)
-                file_paths.append(file_path)
-
-    return file_paths
 
 def get_checkpoints(root_directory):
-    target_file_name = 'commit_raw.json'
+    files_found = find_files(root_directory, COMMIT_RAW_FILENAME)
 
     checkpoints = {}
-
-    files_found = find_files(root_directory, target_file_name)
-
     if files_found:
-        print(f"Found {len(files_found)} {target_file_name} files:")
+        print(f"Found {len(files_found)} {COMMIT_RAW_FILENAME} files:")
         for file_path in files_found:
-            # open json file
             with open(file_path) as json_file:
                 data = json.load(json_file)
-                # print(data)
-                # print(data['widget_name'])
-                # print(data['source_code'])
-                # print(data['block_timestamp'])
-                # print(data['signer_id'])
-                # print(data['block_height'])
-                # print(data['block_hash'])
-                # print(
             checkpoints[data['widget_name']] = data
             print(file_path)
     else:
-        print(f"No {target_file_name} files found in {root_directory}")
+        print(f"No {COMMIT_RAW_FILENAME} files found in {root_directory}")
+
     return checkpoints
 
-# ad_hot, skip widgets in this list already:
-existing_widgets = get_checkpoints(base_path)
 
+
+# Main Script:
+existing_widgets = get_checkpoints(base_path)
 failed_widgets = []
 
-# WIDGET_LOOP
+snowflake_data = get_widget_names()
+widget_names_list = set(row['widget_name'] for row in snowflake_data)
 
 for widget_name in widget_names_list:
-
-    # put this following if else inside a try except block
+    widget_name = str(widget_name)
     try:
         if widget_name in existing_widgets:
             print(f"Updating Index {widget_name}")
-
             df_arr = get_widget_updates(widget_name, existing_widgets[widget_name]['block_timestamp'])
-            df = pd.DataFrame(df_arr)
-
         else:
             print(f"Creating Index {widget_name}")
             df_arr = get_widget_updates(widget_name)
-            df = pd.DataFrame(df_arr)
-    except:
-        # if there is an error, skip this widget and add it failed widgets list
-        failed_widgets.append(widget_name)
-        continue
 
+        df = pd.DataFrame(df_arr).sort_values(by=['block_timestamp'])
+        widget_data = df.to_dict('records')
 
+        dev_widgets = defaultdict(list)
+        for entry in widget_data:
+            dev_widgets[entry['signer_id']].append(entry)
 
+        for near_dev, widget_entries in dev_widgets.items():
+            widget_path = os.path.join(base_path, near_dev)
+            os.makedirs(widget_path, exist_ok=True)
 
+            # Ensure it's a git repository
+            if not os.path.exists(os.path.join(widget_path, '.git')):
+                run_git_command(['git', 'init'], widget_path)
 
+            for widget_entry in widget_entries:
+                signer_dir = widget_entry['signer_id']
+                source_code = widget_entry.get('source_code') or ''
+                timestamp = widget_entry['block_timestamp']
+                current_widget_name = widget_entry['widget_name'] or f"{signer_dir}_{uuid.uuid4()}"
 
-    time.sleep(0.5)
-    df = df.sort_values(by=['block_timestamp'])
+                env = os.environ.copy()
+                env['GIT_COMMITTER_NAME'] = signer_dir
+                env['GIT_COMMITTER_EMAIL'] = signer_dir
 
-    data = df.to_dict('records')
-    # Organize data by widget_name
-    widgets = defaultdict(list)
-    dev_widgets = defaultdict(list)
-    for entry in data:
-        widgets[entry['widget_name']].append(entry)
-        dev_widgets[entry['signer_id']].append(entry)
+                widget_folder = os.path.join(widget_path, current_widget_name)
+                os.makedirs(widget_folder, exist_ok=True)
 
+                # Check for actual changes before writing & committing
+                has_changes = False
+                source_code_file = os.path.join(widget_folder, SOURCE_CODE_FILENAME)
+                if not os.path.exists(source_code_file) or open(source_code_file).read() != source_code:
+                    with open(source_code_file, 'w') as f:
+                        f.write(source_code)
+                    has_changes = True
 
-
-
-    # Create directories, initialize Git repositories, and commit changes
-    for near_dev, widget_entries in dev_widgets.items():
-
-
-        widget_path = os.path.join(base_path, near_dev)
-
-        if not os.path.exists(widget_path):
-            os.makedirs(widget_path)
-            os.chdir(widget_path)
-
-        else:
-            os.chdir(widget_path)
-
-        # Create sub-directories for each widget, store source_code, and commit changes
-        for widget_entry in widget_entries:
-
-            widget_dir = widget_path
-            signer_dir = widget_entry['signer_id']
-            source_code = widget_entry['source_code']
-            timestamp = widget_entry['block_timestamp']
-
-
-            # committer_name = get_github_id(signer_dir)
-            # committer_email = f"{committer_name}" # @example.com
-
-            # we changed it to signer_dir, since
-            # we are not using github id anymore due to performance and API issues
-            env = os.environ.copy()
-            env['GIT_COMMITTER_NAME'] = signer_dir
-            env['GIT_COMMITTER_EMAIL'] = signer_dir
-
-
-            # if committer_name:
-
-            #     env['GIT_AUTHOR_NAME'] = committer_name
-            #     env['GIT_AUTHOR_EMAIL'] = committer_name
-            # else:
-            #     env['GIT_AUTHOR_NAME'] = committer_name
-            #     env['GIT_AUTHOR_EMAIL'] = committer_email
-
-
-
-            widget_name = widget_entry['widget_name']
-
-
-
-            if widget_name in existing_widgets:
-                print(f"checking updates for {widget_name} by {signer_dir} at {timestamp}")
-
-
-                current_commit_date = commit_parse_date(widget_entry['block_timestamp'])
-                # current_commit_date = datetime.strptime(widget_entry['block_timestamp'], "%Y-%m-%d %H:%M:%S.%f")
-
-                # current_commit_date = datetime.strptime(widget_entry['block_timestamp'], "%Y-%m-%dT%H:%M:%S.%fZ")
-
-
-                try:
-                    with open(os.path.join(widget_name, 'commit_raw.json'), 'r') as f:
-                        # read the json file
-                        data = json.load(f)
-                except:
-                    failed_widgets.append(widget_name)
-                    continue
-                # get the latest commit date
-
-                latest_commit_date = commit_parse_date(data['block_timestamp'])
-                # latest_commit_date = datetime.strptime(data['block_timestamp'], "%Y-%m-%d %H:%M:%S.%f")
-
-                # latest_commit_date = datetime.strptime(data['block_timestamp'], "%Y-%m-%dT%H:%M:%S.%fZ")
-
-                # Compare the dates
-                if current_commit_date > latest_commit_date:
-                    print(f"updating {widget_name}")
-
-                    with open(os.path.join(widget_name, 'commit_raw.json'), 'w') as f:
+                widget_details_file = os.path.join(widget_folder, COMMIT_RAW_FILENAME)
+                if not os.path.exists(widget_details_file) or json.load(open(widget_details_file)) != widget_entry:
+                    with open(widget_details_file, 'w') as f:
                         json.dump(widget_entry, f)
-                else:
-                    print("No updates found")
+                    has_changes = True
 
+                if has_changes:
+                    run_git_command(['git', 'add', '.'], widget_folder, env=env)
+                    run_git_command(['git', 'commit', '-m', f'Update {current_widget_name} by {signer_dir} at {timestamp}', '--date', timestamp], widget_folder, env=env)
 
-            else:
-                if widget_name == '':
-                    # add random string to widget_name
-                    widget_name = signer_dir + '_' + str(uuid.uuid4())
-                print(f"Creating {widget_name} by {signer_dir} at {timestamp}")
-                # Create sub-directory for each widget
-                if not os.path.exists(widget_name):
-                    os.makedirs(widget_name)
-                with open(os.path.join(widget_name, 'source_code.jsx'), 'w') as f:
-                    if widget_entry['source_code']:
-                        f.write(widget_entry['source_code'])
-                    else:
-                        f.write("")
-                with open(os.path.join(widget_name, 'commit_raw.json'), 'w') as f:
-                    json.dump(widget_entry, f)
+    except Exception as e:
+        print(f"Error processing {widget_name}: {e}")
+        failed_widgets.append(widget_name)
 
-            # Stage and commit the changes
-            # subprocess.run(['git', 'add', os.path.join(signer_id, 'source_code.jsx')])
+print(f"Failed widgets: {failed_widgets}")
 
-            # subprocess.run(['git', 'commit', '-m', commit_message])
-
-            run_git_command(['git', 'add', '.'], widget_dir, env=env)
-            run_git_command(['git', 'commit', '-m', f'Update {widget_name} by {signer_dir} at {timestamp}', '--date', timestamp], widget_dir, env=env)
-
-
-            # metadata_note = f"TxHash: {widget_entry['tx_hash']}\nActionID: {widget_entry['action_id_social']}\nBlockID: {widget_entry['block_id']}\nWidgetModules: {widget_entry['widget_modules_used']}\nWidgetURL: {widget_entry['widget_url']}"
-
-            # run_git_command(['git', 'notes', 'add', '-m', metadata_note], env=env)
-
-
-    os.chdir(base_path)
