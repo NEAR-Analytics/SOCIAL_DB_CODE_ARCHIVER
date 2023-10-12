@@ -60,24 +60,6 @@ def get_widget_names():
     snowflake_data = flipside.query(sql_statement)
     return snowflake_data.records
 
-def get_all_widget():
-    """
-    This function queries transactions received by address and returns the top n addresses
-
-    :param top_n: number of top addresses to return
-    :param time_period: time period to query
-    :return: pandas dataframe
-
-    """
-
-    sql_statement =f"""
-    select * from
-    near.social.fact_widget_deployments
-    where WIDGET_NAME = 'app__frame'
-    """
-
-    snowflake_data = flipside.query(sql_statement)
-    return snowflake_data.records
 
 
 def get_dev_info(dev_name):

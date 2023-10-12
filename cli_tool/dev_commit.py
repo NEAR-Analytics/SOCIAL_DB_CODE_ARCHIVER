@@ -59,72 +59,109 @@ def get_checkpoints(root_directory):
 
 
 
+
+from concurrent.futures import ThreadPoolExecutor
+
+def fetch_widget_updates(widget_name):
+    try:
+        if widget_name in existing_widgets:
+            df_arr = get_widget_updates(widget_name, existing_widgets[widget_name]['block_timestamp'])
+        else:
+            df_arr = get_widget_updates(widget_name)
+        return widget_name, df_arr
+    except Exception as e:
+        print(f"Error fetching updates for {widget_name}: {e}")
+        return widget_name, None
+
+
+# Main Script:
+def process_widget_data(widget_name, df_arr):
+    try:
+        for widget_name in widget_names_list:
+            widget_name = str(widget_name)
+            try:
+                if widget_name in existing_widgets:
+                    print(f"Updating Index {widget_name}")
+                    df_arr = get_widget_updates(widget_name, existing_widgets[widget_name]['block_timestamp'])
+                else:
+                    print(f"Creating Index {widget_name}")
+                    df_arr = get_widget_updates(widget_name)
+
+                df = pd.DataFrame(df_arr).sort_values(by=['block_timestamp'])
+                widget_data = df.to_dict('records')
+
+                dev_widgets = defaultdict(list)
+                for entry in widget_data:
+                    dev_widgets[entry['signer_id']].append(entry)
+
+                for near_dev, widget_entries in dev_widgets.items():
+                    widget_path = os.path.join(base_path, near_dev)
+                    os.makedirs(widget_path, exist_ok=True)
+
+                    # if you want each dev to have their own git repo, uncomment this section
+                    # Ensure it's a git repository
+                    # if not os.path.exists(os.path.join(widget_path, '.git')):
+                    #     run_git_command(['git', 'init'], widget_path)
+
+                    for widget_entry in widget_entries:
+                        signer_dir = widget_entry['signer_id']
+                        source_code = widget_entry.get('source_code') or ''
+                        timestamp = widget_entry['block_timestamp']
+                        current_widget_name = widget_entry['widget_name'] or f"{signer_dir}_{uuid.uuid4()}"
+
+                        env = os.environ.copy()
+                        env['GIT_COMMITTER_NAME'] = signer_dir
+                        env['GIT_COMMITTER_EMAIL'] = signer_dir
+
+                        widget_folder = os.path.join(widget_path, current_widget_name)
+                        os.makedirs(widget_folder, exist_ok=True)
+
+                        # Check for actual changes before writing & committing
+                        has_changes = False
+                        source_code_file = os.path.join(widget_folder, SOURCE_CODE_FILENAME)
+                        if not os.path.exists(source_code_file) or open(source_code_file).read() != source_code:
+                            with open(source_code_file, 'w') as f:
+                                f.write(source_code)
+                            has_changes = True
+
+                        widget_details_file = os.path.join(widget_folder, COMMIT_RAW_FILENAME)
+                        if not os.path.exists(widget_details_file) or json.load(open(widget_details_file)) != widget_entry:
+                            with open(widget_details_file, 'w') as f:
+                                json.dump(widget_entry, f)
+                            has_changes = True
+
+                        if has_changes:
+                            run_git_command(['git', 'add', '.'], widget_folder, env=env)
+                            run_git_command(['git', 'commit', '-m', f'Update {current_widget_name} by {signer_dir} at {timestamp}', '--date', timestamp], widget_folder, env=env)
+
+            except Exception as e:
+                print(f"Error processing {widget_name}: {e}")
+                failed_widgets.append(widget_name)
+
+    except Exception as e:
+        print(f"Error processing {widget_name}: {e}")
+        return widget_name
+    return None
+
+
 # Main Script:
 existing_widgets = get_checkpoints(base_path)
-failed_widgets = []
 
 snowflake_data = get_widget_names()
 widget_names_list = set(row['widget_name'] for row in snowflake_data)
 
-for widget_name in widget_names_list:
-    widget_name = str(widget_name)
-    try:
-        if widget_name in existing_widgets:
-            print(f"Updating Index {widget_name}")
-            df_arr = get_widget_updates(widget_name, existing_widgets[widget_name]['block_timestamp'])
-        else:
-            print(f"Creating Index {widget_name}")
-            df_arr = get_widget_updates(widget_name)
+# Step 1: Fetch updates concurrently
+with ThreadPoolExecutor(max_workers=5) as executor:
+    fetched_data = list(executor.map(fetch_widget_updates, widget_names_list))
 
-        df = pd.DataFrame(df_arr).sort_values(by=['block_timestamp'])
-        widget_data = df.to_dict('records')
+# Filter out failed fetches and unpack results
+valid_data = [(widget_name, data) for widget_name, data in fetched_data if data]
 
-        dev_widgets = defaultdict(list)
-        for entry in widget_data:
-            dev_widgets[entry['signer_id']].append(entry)
-
-        for near_dev, widget_entries in dev_widgets.items():
-            widget_path = os.path.join(base_path, near_dev)
-            os.makedirs(widget_path, exist_ok=True)
-
-            # Ensure it's a git repository
-            # if not os.path.exists(os.path.join(widget_path, '.git')):
-            #     run_git_command(['git', 'init'], widget_path)
-
-            for widget_entry in widget_entries:
-                signer_dir = widget_entry['signer_id']
-                source_code = widget_entry.get('source_code') or ''
-                timestamp = widget_entry['block_timestamp']
-                current_widget_name = widget_entry['widget_name'] or f"{signer_dir}_{uuid.uuid4()}"
-
-                env = os.environ.copy()
-                env['GIT_COMMITTER_NAME'] = signer_dir
-                env['GIT_COMMITTER_EMAIL'] = signer_dir
-
-                widget_folder = os.path.join(widget_path, current_widget_name)
-                os.makedirs(widget_folder, exist_ok=True)
-
-                # Check for actual changes before writing & committing
-                has_changes = False
-                source_code_file = os.path.join(widget_folder, SOURCE_CODE_FILENAME)
-                if not os.path.exists(source_code_file) or open(source_code_file).read() != source_code:
-                    with open(source_code_file, 'w') as f:
-                        f.write(source_code)
-                    has_changes = True
-
-                widget_details_file = os.path.join(widget_folder, COMMIT_RAW_FILENAME)
-                if not os.path.exists(widget_details_file) or json.load(open(widget_details_file)) != widget_entry:
-                    with open(widget_details_file, 'w') as f:
-                        json.dump(widget_entry, f)
-                    has_changes = True
-
-                if has_changes:
-                    run_git_command(['git', 'add', '.'], widget_folder, env=env)
-                    run_git_command(['git', 'commit', '-m', f'Update {current_widget_name} by {signer_dir} at {timestamp}', '--date', timestamp], widget_folder, env=env)
-
-    except Exception as e:
-        print(f"Error processing {widget_name}: {e}")
-        failed_widgets.append(widget_name)
+# Step 2: Process data sequentially
+failed_widgets = []
+for widget_name, data in valid_data:
+    failure = process_widget_data(widget_name, data)
+    if failure:
+        failed_widgets.append(failure)
 
 print(f"Failed widgets: {failed_widgets}")
-
