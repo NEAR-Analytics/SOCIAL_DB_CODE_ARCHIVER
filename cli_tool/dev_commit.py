@@ -88,8 +88,8 @@ for widget_name in widget_names_list:
             os.makedirs(widget_path, exist_ok=True)
 
             # Ensure it's a git repository
-            if not os.path.exists(os.path.join(widget_path, '.git')):
-                run_git_command(['git', 'init'], widget_path)
+            # if not os.path.exists(os.path.join(widget_path, '.git')):
+            #     run_git_command(['git', 'init'], widget_path)
 
             for widget_entry in widget_entries:
                 signer_dir = widget_entry['signer_id']

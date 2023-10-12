@@ -59,7 +59,7 @@ widget_names_list = [name for name in widget_names_list if name]
 
 failed_updates = []
 
-WIDGETS_PATH = '/Users/yadkonrad/dev_dev/year2023/mar23/widget_wise/cli_tool/_widgets/'
+WIDGETS_PATH = '/widget_wise/cli_tool/_widgets/'
 
 # WIDGET_LOOP
 for widget_name in widget_names_list:

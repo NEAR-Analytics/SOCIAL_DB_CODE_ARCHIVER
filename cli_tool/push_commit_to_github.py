@@ -115,12 +115,12 @@ def get_org_repos(org_name):
     return [repo["name"] for repo in repositories]
 
 # Your GitHub access token
-access_token = "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"
+access_token = ""
 
 # The name of the repository you want to create
 
 
-root_dir = "/Users/yadkonrad/dev_dev/year2023/mar23/widget_wise/cli_tool/_widgets/"
+root_dir = "PATH/widget_wise/cli_tool/_widgets/"
 
 org_name = "NEAR-WIDGET-DEPOT" # Replace with your organization name
 repositories = get_org_repos(org_name)
