@@ -50,12 +50,20 @@ def querying_pagination(query_string, API_KEY=SHROOM_SDK_API):
     return result_df
 
 
+# SELECT WIDGET_NAME, COUNT(*) as COUNT
+# FROM near.social.fact_widget_deployments
+# GROUP BY WIDGET_NAME;
+
 def get_widget_names():
 
     sql_statement = """
-    SELECT WIDGET_NAME, COUNT(*) as COUNT
+    SELECT
+    WIDGET_NAME,
+    COUNT(*) as COUNT,
+    MAX(BLOCK_TIMESTAMP) as LATEST_TIMESTAMP
     FROM near.social.fact_widget_deployments
-    GROUP BY WIDGET_NAME;
+    GROUP BY WIDGET_NAME
+    ORDER BY LATEST_TIMESTAMP DESC;
     """
     snowflake_data = flipside.query(sql_statement)
     return snowflake_data.records
