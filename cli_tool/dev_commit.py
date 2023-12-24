@@ -1,4 +1,3 @@
-# imports
 import os
 import pandas as pd
 import subprocess
@@ -6,18 +5,15 @@ import json
 import uuid
 from datetime import datetime
 from collections import defaultdict
-
 from query_engine.client import *
 
 # Constants and Initial Setup:
-
 COMMIT_RAW_FILENAME = 'commit_raw.json'
 SOURCE_CODE_FILENAME = 'source_code.jsx'
 
 base_path = os.environ.get('WIDGET_ROOT_DIR', './default_directory')  # Use a default directory if environment variable is not set
 
 # Utility Functions:
-
 def run_git_command(command, path='.', env=None):
     process = subprocess.Popen(command, cwd=path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     stdout, stderr = process.communicate()
@@ -25,7 +21,6 @@ def run_git_command(command, path='.', env=None):
         print(stderr.decode())
     else:
         print(stdout.decode())
-
 
 def commit_parse_date(date_string):
     formats = ['%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%dT%H:%M:%S.%fZ']
@@ -36,10 +31,8 @@ def commit_parse_date(date_string):
             pass
     raise ValueError(f'time data {date_string} does not match any of the formats')
 
-
 def find_files(root_dir, file_name):
     return [os.path.join(dirpath, file) for dirpath, _, filenames in os.walk(root_dir) for file in filenames if file == file_name]
-
 
 def get_checkpoints(root_directory):
     files_found = find_files(root_directory, COMMIT_RAW_FILENAME)
@@ -56,8 +49,6 @@ def get_checkpoints(root_directory):
         print(f"No {COMMIT_RAW_FILENAME} files found in {root_directory}")
 
     return checkpoints
-
-
 
 # Main Script:
 existing_widgets = get_checkpoints(base_path)
@@ -88,14 +79,16 @@ for widget_name in widget_names_set:
             os.makedirs(widget_path, exist_ok=True)
 
             for widget_entry in widget_entries:
-                signer_dir = widget_entry['signer_id']
+                signer_id = widget_entry['signer_id']
                 source_code = widget_entry.get('source_code') or ''
                 timestamp = widget_entry['block_timestamp']
-                current_widget_name = widget_entry['widget_name'] or f"{signer_dir}_{uuid.uuid4()}"
+                current_widget_name = widget_entry['widget_name'] or f"{signer_id}_{uuid.uuid4()}"
 
                 env = os.environ.copy()
-                env['GIT_COMMITTER_NAME'] = signer_dir
-                env['GIT_COMMITTER_EMAIL'] = signer_dir
+                env['GIT_COMMITTER_NAME'] = signer_id
+                env['GIT_COMMITTER_EMAIL'] = f"{signer_id}"
+                env['GIT_AUTHOR_NAME'] = signer_id
+                env['GIT_AUTHOR_EMAIL'] = f"{signer_id}"
 
                 widget_folder = os.path.join(widget_path, current_widget_name)
                 os.makedirs(widget_folder, exist_ok=True)
@@ -129,7 +122,7 @@ for widget_name in widget_names_set:
 
                 if has_changes:
                     run_git_command(['git', 'add', '.'], widget_folder, env=env)
-                    run_git_command(['git', 'commit', '-m', f'Update {current_widget_name} by {signer_dir} at {timestamp}', '--date', timestamp], widget_folder, env=env)
+                    run_git_command(['git', 'commit', '-m', f'Update {current_widget_name} by {signer_id} at {timestamp}', '--date', timestamp], widget_folder, env=env)
 
     except Exception as e:
         print(f"Error processing {widget_name}: {e}")
