@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: '3.x'  # Specify the Python version you need
 
       - name: Install Python dependencies
         run: |
@@ -49,17 +49,8 @@ jobs:
           git config --global user.email "spencer.n.park@gmail.com"
           git config --global user.name "s-n-park"
           git checkout -b update-widgets-branch
-
-          # git add .
-          # git commit -m "Update widgets from automation"
-          # git push --force origin update-widgets-branch
-
-          # Create a test commit
-          echo "Test commit" > test_commit.txt
-          git add test_commit.txt
-          git commit -m "Test commit for workflow"
-
-          # Push the changes to the update-widgets-branch
+          git add .
+          git commit -m "Update widgets from automation"
           git remote set-url origin https://s-n-park:${{ secrets.GH_TOKEN }}@github.com/NEAR-Analytics/BOS_WIDGETS.git
           git pull origin update-widgets-branch --rebase
           git push --set-upstream origin update-widgets-branch
