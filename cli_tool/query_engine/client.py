@@ -1,4 +1,3 @@
-
 import os
 import json
 import pandas as pd
@@ -7,14 +6,16 @@ from itertools import chain
 from pprint import pprint
 from fuzzywuzzy import process, fuzz
 from decimal import *
+
 # from shroomdk import ShroomDK
 
 from flipside import Flipside
 
 
-SHROOM_SDK_API = os.environ['SHROOM_SDK']
+SHROOM_SDK_API = os.environ["SHROOM_SDK"]
 
 flipside = Flipside(SHROOM_SDK_API)
+
 
 def querying_pagination(query_string, API_KEY=SHROOM_SDK_API):
     """
@@ -32,20 +33,20 @@ def querying_pagination(query_string, API_KEY=SHROOM_SDK_API):
     # Query results page by page and saves the results in a list
     # If nothing is returned then just stop the loop and start adding the data to the dataframe
     result_list = []
-    for i in range(1,11): # max is a million rows @ 100k per page
-        data=sdk.query(query_string,page_size=100000,page_number=i)
+    for i in range(1, 11):  # max is a million rows @ 100k per page
+        data = sdk.query(query_string, page_size=100000, page_number=i)
         if data.run_stats.record_count == 0:
             break
         else:
             result_list.append(data.records)
 
     # Loops through the returned results and adds into a pandas dataframe
-    result_df=pd.DataFrame()
+    result_df = pd.DataFrame()
     for idx, each_list in enumerate(result_list):
         if idx == 0:
-            result_df=pd.json_normalize(each_list)
+            result_df = pd.json_normalize(each_list)
         else:
-            result_df=pd.concat([result_df, pd.json_normalize(each_list)])
+            result_df = pd.concat([result_df, pd.json_normalize(each_list)])
 
     return result_df
 
@@ -53,6 +54,7 @@ def querying_pagination(query_string, API_KEY=SHROOM_SDK_API):
 # SELECT WIDGET_NAME, COUNT(*) as COUNT
 # FROM near.social.fact_widget_deployments
 # GROUP BY WIDGET_NAME;
+
 
 def get_widget_names():
 
@@ -62,6 +64,7 @@ def get_widget_names():
     COUNT(*) as COUNT,
     MAX(BLOCK_TIMESTAMP) as LATEST_TIMESTAMP
     FROM near.social.fact_widget_deployments
+    WHERE BLOCK_TIMESTAMP >= CURRENT_DATE()-60
     GROUP BY WIDGET_NAME
     ORDER BY LATEST_TIMESTAMP DESC;
     """
@@ -69,9 +72,7 @@ def get_widget_names():
     return snowflake_data.records
 
 
-
 def get_dev_info(dev_name):
-
 
     sql_statement = f"""
 
@@ -98,11 +99,10 @@ def get_list_of_all_devs():
 
     snowflake_data = flipside.query(sql_statement)
     snowflake_data = snowflake_data.records
-    signer_ids = [row['signer_id'] for row in snowflake_data]
+    signer_ids = [row["signer_id"] for row in snowflake_data]
 
     data = set(signer_ids)
     return data
-
 
 
 def get_widget_updates(widget_name, timestamp=None):
@@ -118,17 +118,14 @@ def get_widget_updates(widget_name, timestamp=None):
         """
     else:
 
-        sql_statement =f"""
+        sql_statement = f"""
         select * from
         near.social.fact_widget_deployments
         where WIDGET_NAME = '{widget_name}'
         """
 
-
-
     snowflake_data = flipside.query(sql_statement)
     return snowflake_data.records
-
 
     """
     This function queries transactions received by address and returns the top n addresses
