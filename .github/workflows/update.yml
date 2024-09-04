@@ -1,0 +1,66 @@
+name: Update BOS Widgets
+
+on:
+    schedule:
+      - cron: '0 0 1 * *'  # Runs at 00:00 on the 1st of every month
+    workflow_dispatch:  # Allows manual triggering of the workflow
+
+jobs:
+  update-widgets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Clone BOS_WIDGETS repo
+        run: |
+          git clone https://github.com/NEAR-Analytics/BOS_WIDGETS.git
+          echo "BOS_WIDGETS repo cloned successfully"
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+            python -m venv venv
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r $GITHUB_WORKSPACE/requirements.txt
+
+      - name: Set environment variables
+        run: |
+          echo "export WIDGET_ROOT_DIR=$GITHUB_WORKSPACE/BOS_WIDGETS" >> $GITHUB_ENV
+          echo "export SHROOM_SDK=${{ secrets.FLIPSIDE_API_KEY }}" >> $GITHUB_ENV
+
+      - name: Navigate to CLI tool directory and run dev_commit.py
+        run: |
+          source venv/bin/activate
+          export WIDGET_ROOT_DIR=$GITHUB_WORKSPACE/BOS_WIDGETS
+          export SHROOM_SDK=${{ secrets.FLIPSIDE_API_KEY }}
+          cd $GITHUB_WORKSPACE/cli_tool
+          python dev_commit.py
+
+      - name: Commit changes in BOS_WIDGETS repo
+        run: |
+          cd $GITHUB_WORKSPACE/BOS_WIDGETS 
+          git config --global user.email "spencer.n.park@gmail.com"
+          git config --global user.name "s-n-park"
+          git checkout -b update-widgets-branch
+
+          # git add .
+          # git commit -m "Update widgets from automation"
+          # git push --force origin update-widgets-branch
+
+          # Create a test commit
+          echo "Test commit" > test_commit.txt
+          git add test_commit.txt
+          git commit -m "Test commit for workflow"
+
+          # Push the changes to the update-widgets-branch
+          git remote set-url origin https://s-n-park:${{ secrets.GH_TOKEN }}@github.com/NEAR-Analytics/BOS_WIDGETS.git
+          git push --set-upstream origin update-widgets-branch
+          git pull origin update-widgets-branch --rebase
+          git push --verbose origin update-widgets-branch
