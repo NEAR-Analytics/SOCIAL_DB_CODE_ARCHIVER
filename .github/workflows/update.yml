@@ -61,6 +61,6 @@ jobs:
 
           # Push the changes to the update-widgets-branch
           git remote set-url origin https://s-n-park:${{ secrets.GH_TOKEN }}@github.com/NEAR-Analytics/BOS_WIDGETS.git
-          git push --set-upstream origin update-widgets-branch
           git pull origin update-widgets-branch --rebase
+          git push --set-upstream origin update-widgets-branch
           git push --verbose origin update-widgets-branch
