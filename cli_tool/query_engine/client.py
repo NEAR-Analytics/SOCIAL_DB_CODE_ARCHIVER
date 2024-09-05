@@ -64,7 +64,7 @@ def get_widget_names():
     COUNT(*) as COUNT,
     MAX(BLOCK_TIMESTAMP) as LATEST_TIMESTAMP
     FROM near.social.fact_widget_deployments
-    WHERE BLOCK_TIMESTAMP >= CURRENT_DATE()-60
+    WHERE BLOCK_TIMESTAMP >= CURRENT_DATE()-7
     GROUP BY WIDGET_NAME
     ORDER BY LATEST_TIMESTAMP DESC;
     """
