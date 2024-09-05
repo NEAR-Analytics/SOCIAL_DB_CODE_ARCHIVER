@@ -1,0 +1,55 @@
+name: Create PR for update-widgets-branch in another repo
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Runs at 03:00 every Monday
+  workflow_dispatch:
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the other repository
+        uses: actions/checkout@v3
+        with:
+          repository: NEAR-Analytics/BOS_WIDGETS  # Specify the target repo
+          token: ${{ secrets.GH_TOKEN }}  # Use a Personal Access Token (PAT)
+          path: BOS_WIDGETS  # Checkout the repo into a subdirectory
+          fetch-depth: 0  # Fetch all history so we can work with branches
+
+      - name: Set up Git
+        run: |
+          git config --global user.email "spencer.n.park@gmail.com"
+          git config --global user.name "s-n-park"
+
+      - name: Checkout master branch of the other repo
+        run: |
+          cd BOS_WIDGETS
+          git checkout master
+          git pull origin master
+
+      - name: Merge update-widgets-branch into master in the other repo
+        run: |
+          cd BOS_WIDGETS
+          git merge origin/update-widgets-branch || exit 1
+
+      - name: Push changes to master branch
+        run: |
+          cd BOS_WIDGETS
+          git remote set-url origin https://s-n-park:${{ secrets.GH_TOKEN }}@github.com/NEAR-Analytics/BOS_WIDGETS.git
+          git push origin master
+
+      - name: Create Pull Request on Conflict in the other repo
+        if: failure()
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          commit-message: "Resolve conflicts between master and update-widgets-branch"
+          path: BOS_WIDGETS  # Specify the correct path where the repo is checked out
+          title: "Conflict detected: Merge update-widgets-branch into master"
+          body: "This PR attempts to resolve merge conflicts."
+          base: master  # The branch you want to merge into
+          head: update-widgets-branch  # The branch where changes come from
+          reviewers: s-n-park
+          assignees: s-n-park 
