@@ -1,4 +1,4 @@
-name: Create PR for update-widgets-branch in another repo
+name: Merge BOS Widgets
 
 on:
   schedule:
